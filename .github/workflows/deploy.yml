@@ -4,17 +4,20 @@ on:
     push:
         branches: [main]
 
-permissions:
-    contents: read
-    pages: write
-    id-token: write
-
 # Forces the older GitHub actions to run on Node 24 to clear the warning
-env:
-    FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+# env:
+# FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
     build-and-deploy:
+        permissions:
+            contents: read
+            pages: write
+            id-token: write
+        environment:
+            name: github-pages
+            url: ${{ steps.deployment.outputs.page_url }}
+
         runs-on: ubuntu-latest
         steps:
             - name: Checkout
