@@ -5,7 +5,9 @@
 	"main": "index.ts",
 	"scripts": {
 		"test": "echo \"Error: no test specified\" && exit 1",
-		"start": "vite --open --host"
+		"start": "vite --open --host",
+		"build": "tsc && vite build --base='./'",
+		"preview": "vite preview --host --open"
 	},
 	"keywords": [],
 	"author": "",
