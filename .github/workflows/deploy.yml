@@ -5,8 +5,8 @@ on:
         branches: [main]
 
 # Forces the older GitHub actions to run on Node 24 to clear the warning
-# env:
-# FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+env:
+    FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
     build-and-deploy:
@@ -41,4 +41,4 @@ jobs:
 
             - name: Deploy to GitHub Pages
               id: deployment
-              uses: actions/deploy-pages@v4
+              uses: actions/deploy-pages@v4.0.5
