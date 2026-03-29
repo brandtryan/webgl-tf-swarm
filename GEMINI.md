@@ -5,6 +5,7 @@
 - **2026-03-29**: Successfully refactored the project into a class-based `SwarmApp`.
 - **2026-03-29**: Fixed WebGL2 Transform Feedback implementation, resolving `GL_INVALID_OPERATION` and shader compilation issues.
 - **2026-03-29**: Particles (100,000) are now rendering correctly with additive blending, mouse attraction, and simplex noise turbulence.
+- **2026-03-29**: Added `<thingcolors>` palette (Teal, Pink, Gold) and center-repulsion to prevent swarm collapse.
 
 ## Project Structure
 

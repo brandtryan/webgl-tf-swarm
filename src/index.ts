@@ -14,6 +14,7 @@ import {
 	dot,
 	length,
 	max,
+	mix,
 	normalize,
 	program as progs,
 	defn,
@@ -23,11 +24,14 @@ import {
 	output,
 	uniform,
 	gt,
+	lt,
+	neg,
 	$x,
 	$y,
 	$xy,
 	$w,
 	$z,
+	clamp,
 } from "@thi.ng/shader-ast";
 import { GLSLVersion, targetGLSL } from "@thi.ng/shader-ast-glsl";
 import { snoise3 } from "@thi.ng/shader-ast-stdlib";
@@ -68,7 +72,7 @@ class SwarmApp {
 
 		const data = this.generateInitialData();
 		const { vs, fs } = this.createShaders();
-		
+
 		console.log("VS:\n", vs);
 		console.log("FS:\n", fs);
 
@@ -89,10 +93,7 @@ class SwarmApp {
 	setupEvents() {
 		window.onresize = () => this.resize();
 		window.onmousemove = e => {
-			this.mouse = [
-				(e.clientX / this.canvas.width) * 2 - 1,
-				(1 - e.clientY / this.canvas.height) * 2 - 1
-			];
+			this.mouse = [(e.clientX / this.canvas.width) * 2 - 1, (1 - e.clientY / this.canvas.height) * 2 - 1];
 		};
 	}
 
@@ -118,6 +119,7 @@ class SwarmApp {
 
 		const a_state = input("vec4", "a_state");
 		const v_state = output("vec4", "v_state");
+		const v_color = output("vec3", "v_color");
 		const u_time = uniform("float", "u_time");
 		const u_mouse = uniform("vec2", "u_mouse");
 
@@ -125,6 +127,7 @@ class SwarmApp {
 			snoise3,
 			a_state,
 			v_state,
+			v_color,
 			u_time,
 			u_mouse,
 			defMain(() => {
@@ -137,8 +140,6 @@ class SwarmApp {
 				const noiseCoords = sym(vec3(0, 0, 0));
 				const noise = sym(vec2(0, 0));
 
-				// Built-ins can be accessed by their names in the output
-				// or we can define them as outputs with specific names
 				const gl_Position = output("vec4", "gl_Position");
 				const gl_PointSize = output("float", "gl_PointSize");
 
@@ -151,25 +152,50 @@ class SwarmApp {
 					force,
 					noiseCoords,
 					noise,
-					
+
 					assign(pos, $xy(a_state)),
 					assign(vel, vec2($z(a_state), $w(a_state))),
-					
+
+					// 1. Attraction to Mouse
 					assign(dir, sub(u_mouse, pos)),
 					assign(dist, length(dir)),
-					assign(force, mul(normalize(dir), div(float(0.01), max(dist, float(0.05))))),
+					assign(force, mul(normalize(dir), div(float(0.02), max(dist, float(0.1))))),
 
-					assign(noiseCoords, vec3(mul(pos, float(1.5)), mul(u_time, float(0.2)))),
+					// 2. Center Repulsion (Prevents collapsing into a line/point)
+					assign(dir, pos), // vector from center
+					assign(dist, length(dir)),
+					assign(force, add(force, mul(normalize(dir), div(float(0.005), max(dist, float(0.05)))))),
+
+					// 3. Noise Turbulence
+					assign(noiseCoords, vec3(mul(pos, float(1.2)), mul(u_time, float(0.15)))),
 					assign(noise, vec2(snoise3(noiseCoords), snoise3(add(noiseCoords, float(100.0))))),
 
-					assign(vel, mul(add(vel, mul(add(force, mul(noise, float(0.02))), dt)), float(0.98))),
+					// Physics Update
+					assign(vel, mul(add(vel, mul(add(force, mul(noise, float(0.03))), dt)), float(0.985))),
 					assign(pos, add(pos, mul(vel, dt))),
 
 					// Boundary Wrap
-					ifThen(gt(abs($x(pos)), float(1.0)), [assign($x(pos), mul($x(pos), float(-0.99)))]),
-					ifThen(gt(abs($y(pos)), float(1.0)), [assign($y(pos), mul($y(pos), float(-0.99)))]),
+					ifThen(gt(abs($x(pos)), float(1.05)), [assign($x(pos), mul(neg($x(pos)), float(0.95)))]),
+					ifThen(gt(abs($y(pos)), float(1.05)), [assign($y(pos), mul(neg($y(pos)), float(0.95)))]),
 
+					// Output State
 					assign(v_state, vec4(pos, vel)),
+
+					// Color mapping from sampleColors.jpg
+					// Palette: Deep Teal (0, 0.2, 0.3), Neon Pink (1, 0.1, 0.6), Golden Yellow (1, 0.9, 0)
+					assign(
+						v_color,
+						mix(
+							vec3(0.0, 0.2, 0.3), // Deep Teal
+							mix(
+								vec3(1.0, 0.1, 0.6), // Neon Pink
+								vec3(1.0, 0.9, 0.0), // Golden Yellow
+								clamp(sub(mul(length(vel), float(15.0)), float(0.5)), float(0.0), float(1.0)),
+							),
+							clamp(mul(length(vel), float(15.0)), float(0.0), float(1.0)),
+						),
+					),
+
 					assign(gl_Position, vec4(pos, 0, 1)),
 					assign(gl_PointSize, float(1.5)),
 				];
@@ -177,7 +203,6 @@ class SwarmApp {
 		]);
 
 		const vsRaw = glsl(vsProgram);
-		// Remove the duplicate declarations of built-ins if they were generated
 		const vs = vsRaw
 			.replace("#version 300 es", "#version 300 es\nprecision highp float;")
 			.replace(/out\s+vec4\s+gl_Position\s*;/g, "")
@@ -185,9 +210,10 @@ class SwarmApp {
 
 		const fs = `#version 300 es
 precision mediump float;
+in vec3 v_color;
 out vec4 fragColor;
 void main() { 
-    fragColor = vec4(0.3, 0.7, 1.0, 0.3); 
+    fragColor = vec4(v_color, 0.4); 
 }`;
 
 		return { vs, fs };
@@ -250,7 +276,7 @@ void main() {
 
 	start() {
 		fromRAF({ timestamp: true }).subscribe({
-			next: (t) => this.update(t)
+			next: t => this.update(t),
 		});
 	}
 
