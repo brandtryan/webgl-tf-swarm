@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>WebGL2 TF Swarm</title>
+		<style>
+			body {
+				margin: 0;
+				overflow: hidden;
+				background: #111;
+				color: #fff;
+				font-family: monospace;
+			}
+			canvas {
+				display: block;
+				width: 100vw;
+				height: 100vh;
+			}
+			#ui {
+				position: fixed;
+				top: 10px;
+				left: 10px;
+				padding: 10px;
+				background: rgba(0, 0, 0, 0.8);
+				border: 1px solid #333;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="ui">Booting...</div>
+		<canvas id="glcanvas"></canvas>
+		<script type="module" src="src/index.ts"></script>
+	</body>
+</html>

@@ -1,0 +1,26 @@
+{
+	"name": "webgl-tf-swarm",
+	"version": "1.0.0",
+	"description": "",
+	"main": "index.ts",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1",
+		"start": "vite --open --host"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"type": "module",
+	"devDependencies": {
+		"typescript": "~5.9.3",
+		"vite": "^7.3.1"
+	},
+	"dependencies": {
+		"@thi.ng/random": "^4.1.42",
+		"@thi.ng/rstream": "^9.4.1",
+		"@thi.ng/shader-ast": "^1.1.44",
+		"@thi.ng/shader-ast-glsl": "^1.0.63",
+		"@thi.ng/shader-ast-stdlib": "^1.0.63",
+		"@thi.ng/webgl": "^6.9.103"
+	}
+}
