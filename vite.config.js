@@ -1,5 +1,5 @@
 export default {
-	base: "./",
+	base: "/webgl-tf-swarm/",
 	build: {
 		target: "esnext",
 		sourcemap: true,
