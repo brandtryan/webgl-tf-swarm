@@ -11,20 +11,16 @@ import {
 	sub,
 	div,
 	abs,
-	dot,
 	length,
 	max,
 	mix,
 	normalize,
 	program as progs,
-	defn,
-	ret,
 	ifThen,
 	input,
 	output,
 	uniform,
 	gt,
-	lt,
 	neg,
 	$x,
 	$y,
@@ -156,17 +152,16 @@ class SwarmApp {
 					assign(pos, $xy(a_state)),
 					assign(vel, vec2($z(a_state), $w(a_state))),
 
-					// 1. Attraction to Mouse
+					// 1. Moused Attraction
 					assign(dir, sub(u_mouse, pos)),
 					assign(dist, length(dir)),
 					assign(force, mul(normalize(dir), div(float(0.02), max(dist, float(0.1))))),
 
-					// 2. Center Repulsion (Prevents collapsing into a line/point)
-					assign(dir, pos), // vector from center
+					assign(dir, pos),
 					assign(dist, length(dir)),
 					assign(force, add(force, mul(normalize(dir), div(float(0.005), max(dist, float(0.05)))))),
 
-					// 3. Noise Turbulence
+					// Noise Storm
 					assign(noiseCoords, vec3(mul(pos, float(1.2)), mul(u_time, float(0.15)))),
 					assign(noise, vec2(snoise3(noiseCoords), snoise3(add(noiseCoords, float(100.0))))),
 
@@ -174,22 +169,20 @@ class SwarmApp {
 					assign(vel, mul(add(vel, mul(add(force, mul(noise, float(0.03))), dt)), float(0.985))),
 					assign(pos, add(pos, mul(vel, dt))),
 
-					// Boundary Wrap
+					// Boundary
 					ifThen(gt(abs($x(pos)), float(1.05)), [assign($x(pos), mul(neg($x(pos)), float(0.95)))]),
 					ifThen(gt(abs($y(pos)), float(1.05)), [assign($y(pos), mul(neg($y(pos)), float(0.95)))]),
 
 					// Output State
 					assign(v_state, vec4(pos, vel)),
 
-					// Color mapping from sampleColors.jpg
-					// Palette: Deep Teal (0, 0.2, 0.3), Neon Pink (1, 0.1, 0.6), Golden Yellow (1, 0.9, 0)
 					assign(
 						v_color,
 						mix(
-							vec3(0.0, 0.2, 0.3), // Deep Teal
+							vec3(0.0, 0.2, 0.3),
 							mix(
-								vec3(1.0, 0.1, 0.6), // Neon Pink
-								vec3(1.0, 0.9, 0.0), // Golden Yellow
+								vec3(1.0, 0.1, 0.6),
+								vec3(1.0, 0.9, 0.0),
 								clamp(sub(mul(length(vel), float(15.0)), float(0.5)), float(0.0), float(1.0)),
 							),
 							clamp(mul(length(vel), float(15.0)), float(0.0), float(1.0)),
