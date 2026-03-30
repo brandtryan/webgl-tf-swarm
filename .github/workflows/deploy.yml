@@ -31,7 +31,7 @@ jobs:
           node-version: 24 # You can change this to 18 if needed
 
       - name: Install Dependencies
-        run: npm ci # Uses package-lock.json for clean, reliable installs
+        run: npm install # Uses package-lock.json for clean, reliable installs
 
       - name: Build Project
         run: npm run build # Compiles your .ts to .js and bundles everything
