@@ -49,12 +49,13 @@ class SwarmApp {
 	locs!: { time: WebGLUniformLocation | null; mouse: WebGLUniformLocation | null };
 	readIdx = 0;
 	mouse = [0, 0];
+	isReady = false;
+	subscription?: any; // track loop
+	lastFrameTimestamp = performance.now();
+	lastTime = performance.now();
 	frames = 0;
-	lastTime = 0;
-	private lastFrameTimestamp = 0;
-	private NUM_PARTICLES: number = 100000;
-	private rafSubscription: any;
-	private subscription: any; // track loop
+	NUM_PARTICLES: number = 100000;
+	rafSubscription: any;
 
 	constructor() {
 		this.canvas = <HTMLCanvasElement>document.getElementById("glcanvas");
@@ -69,12 +70,30 @@ class SwarmApp {
 		this.init();
 	}
 
+	reset(newCount: number) {
+		this.isReady = false; // Immediately stop the draw loop
+		this.NUM_PARTICLES = newCount;
+
+		// Reset metrics for a clean report
+		this.lastTime = performance.now();
+		this.frames = 0;
+
+		// Cleanup GPU Memory (Crucial for 1M particle scaling)
+		const gl = this.gl;
+		if (this.bufA) gl.deleteBuffer(this.bufA);
+		if (this.bufB) gl.deleteBuffer(this.bufB);
+		if (this.vaoA) gl.deleteVertexArray(this.vaoA);
+		if (this.vaoB) gl.deleteVertexArray(this.vaoB);
+
+		this.init();
+	}
+
 	async init() {
 		this.setupEvents();
 		this.resize();
 
 		// Show a loading state in the UI if needed
-		this.ui.innerText = `Generating ${this.NUM_PARTICLES.toLocaleString()} particles...`;
+		this.ui.innerText = `Generating ${this.NUM_PARTICLES.toLocaleString()} PARTICLES...`;
 
 		// Heavy array generation to a background thread
 		const data = await this.generateInitialDataWorker(this.NUM_PARTICLES);
@@ -89,26 +108,13 @@ class SwarmApp {
 		}
 
 		this.setupBuffers(data);
+
 		this.gl.enable(this.gl.BLEND);
 		this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE);
-		if (!this.rafSubscription) this.start();
-	}
 
-	// Reset!
-	reset(newCount: number) {
-		this.NUM_PARTICLES = newCount;
+		if (!this.subscription) this.start();
 
-		// Reset trackers for new math
-		this.lastTime = 0;
-		this.lastFrameTimestamp = 0;
-		this.frames = 0;
-
-		if (this.bufA) this.gl.deleteBuffer(this.bufA);
-		if (this.bufB) this.gl.deleteBuffer(this.bufB);
-		if (this.vaoA) this.gl.deleteVertexArray(this.vaoA);
-		if (this.vaoB) this.gl.deleteVertexArray(this.vaoB);
-
-		this.init();
+		this.isReady = true; // safe to run again
 	}
 
 	generateInitialDataWorker(NUM_PARTICLES: number): Promise<Float32Array> {
@@ -333,6 +339,8 @@ void main() {
 	}
 
 	update(t: number) {
+		if (!this.isReady) return; // Exit if buffers are being swapped
+
 		const gl = this.gl;
 		const writeIdx = 1 - this.readIdx;
 
@@ -340,20 +348,16 @@ void main() {
 		gl.uniform1f(this.locs.time, t * 0.001);
 		gl.uniform2f(this.locs.mouse, this.mouse[0], this.mouse[1]);
 
-		// Transform Feedback
 		gl.bindVertexArray(this.readIdx === 0 ? this.vaoA : this.vaoB);
 		gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, writeIdx === 0 ? this.bufA : this.bufB);
 
 		gl.enable(gl.RASTERIZER_DISCARD);
 		gl.beginTransformFeedback(gl.POINTS);
-		gl.drawArrays(gl.POINTS, 0, this.NUM_PARTICLES);
+		gl.drawArrays(gl.POINTS, 0, this.NUM_PARTICLES); // Use dynamic count
 		gl.endTransformFeedback();
 		gl.disable(gl.RASTERIZER_DISCARD);
 
-		// Render to screen
-		gl.bindVertexArray(null);
 		gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, null);
-
 		gl.clearColor(0, 0, 0, 1);
 		gl.clear(gl.COLOR_BUFFER_BIT);
 
@@ -361,32 +365,26 @@ void main() {
 		gl.drawArrays(gl.POINTS, 0, this.NUM_PARTICLES);
 
 		this.readIdx = writeIdx;
-
-		this.updateUI(t);
+		this.updateUI(); // We no longer pass 't' to avoid unit bugs
 	}
-
-	updateUI(t: number) {
-		const frameTime = t - this.lastFrameTimestamp;
-		this.lastFrameTimestamp = t;
+	updateUI() {
+		const now = performance.now();
+		const frameTime = now - this.lastFrameTimestamp; // Accurate millisecond delta
+		this.lastFrameTimestamp = now;
 		this.frames++;
-
-		const latency = frameTime.toFixed(2);
 
 		// Calculate VRAM in Megabytes
 		// (numParticles * 16 bytes per vec4 * 2 buffers) / 1024 / 1024
-		const vramUsage = ((this.NUM_PARTICLES * 16 * 2) / 1048576).toFixed(2);
+		if (now - this.lastTime >= 1000) {
+			const latency = frameTime.toFixed(2);
+			// Calculate VRAM for the particle buffers (4 floats * 4 bytes * 2 buffers)
+			const vram = ((this.NUM_PARTICLES * 16 * 2) / 1048576).toFixed(2);
 
-		this.ui.innerText = `
-            LATENCY: ${latency}ms | 
-            FPS: ${this.frames} | 
-            PARTICLES: ${this.NUM_PARTICLES.toLocaleString()} | 
-            VRAM: ${vramUsage}MB
-        `
-			.trim()
-			.replace(/\n/g, "");
+			this.ui.innerText = `LATENCY: ${latency}ms | FPS: ${this.frames} | PARTICLES: ${this.NUM_PARTICLES.toLocaleString()} | VRAM: ${vram}MB`;
 
-		this.frames = 0;
-		this.lastTime = t;
+			this.frames = 0;
+			this.lastTime = now;
+		}
 	}
 }
 
