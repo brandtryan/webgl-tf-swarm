@@ -240,7 +240,7 @@ class SwarmApp {
 					),
 
 					assign(gl_Position, vec4(pos, 0, 1)),
-					assign(gl_PointSize, float(1.5)),
+					assign(gl_PointSize, float(2.5)),
 				];
 			}),
 		]);
@@ -357,18 +357,27 @@ void main() {
 	}
 
 	updateUI(t: number) {
-		const frameTime = t - this.lastFrameTimestamp; // Current frame latency
+		const frameTime = t - this.lastFrameTimestamp;
 		this.lastFrameTimestamp = t;
-
 		this.frames++;
-		if (t > this.lastTime + 1000) {
-			// We show the latency of the very last frame for accuracy
-			const latency = frameTime.toFixed(2);
-			this.ui.innerText = `FPS: ${this.frames} | LATENCY: ${latency}ms | PARTICLES: ${this.NUM_PARTICLES.toLocaleString()}`;
 
-			this.frames = 0;
-			this.lastTime = t;
-		}
+		const latency = frameTime.toFixed(2);
+
+		// Calculate VRAM in Megabytes
+		// (numParticles * 16 bytes per vec4 * 2 buffers) / 1024 / 1024
+		const vramUsage = ((this.NUM_PARTICLES * 16 * 2) / 1048576).toFixed(2);
+
+		this.ui.innerText = `
+            LATENCY: ${latency}ms | 
+            FPS: ${this.frames} | 
+            PARTICLES: ${this.NUM_PARTICLES.toLocaleString()} | 
+            VRAM: ${vramUsage}MB
+        `
+			.trim()
+			.replace(/\n/g, "");
+
+		this.frames = 0;
+		this.lastTime = t;
 	}
 }
 
