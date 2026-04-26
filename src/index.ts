@@ -67,16 +67,17 @@ class SwarmApp {
 		this.init();
 	}
 
-	init() {
+	async init() {
 		this.setupEvents();
 		this.resize();
 
-		const data = this.generateInitialData();
+		// Show a loading state in the UI if needed
+		this.ui.innerText = "Initializing Swarm...";
+
+		// Offload the heavy 400k-element array generation to a background thread
+		const data = await this.generateInitialDataWorker();
+
 		const { vs, fs } = this.createShaders();
-
-		console.log("VS:\n", vs);
-		console.log("FS:\n", fs);
-
 		this.program = this.createProgram(vs, fs);
 		this.locs = {
 			time: this.gl.getUniformLocation(this.program, "u_time"),
@@ -84,11 +85,36 @@ class SwarmApp {
 		};
 
 		this.setupBuffers(data);
-
 		this.gl.enable(this.gl.BLEND);
 		this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE);
 
 		this.start();
+	}
+
+	generateInitialDataWorker(): Promise<Float32Array> {
+		return new Promise(resolve => {
+			const workerCode = `
+            onmessage = function(e) {
+                const num = e.data;
+                const data = new Float32Array(num * 4);
+                for (let i = 0; i < data.length; i += 4) {
+                    data[i] = Math.random() * 2 - 1;
+                    data[i + 1] = Math.random() * 2 - 1;
+                    data[i + 2] = (Math.random() - 0.5) * 0.1;
+                    data[i + 3] = (Math.random() - 0.5) * 0.1;
+                }
+                postMessage(data, [data.buffer]); // Transfer buffer for 0ms copy time
+            };
+        `;
+			const blob = new Blob([workerCode], { type: "application/javascript" });
+			const worker = new Worker(URL.createObjectURL(blob));
+
+			worker.onmessage = e => {
+				resolve(e.data);
+				worker.terminate();
+			};
+			worker.postMessage(NUM_PARTICLES);
+		});
 	}
 
 	setupEvents() {
