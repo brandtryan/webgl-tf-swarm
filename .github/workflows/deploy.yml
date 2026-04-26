@@ -13,7 +13,7 @@ permissions:
 # Allow only one concurrent deployment
 concurrency:
     group: "pages"
-    cancel-in-progress: true
+    cancel-in-progress: false
 
 jobs:
     build-and-deploy:
@@ -28,19 +28,20 @@ jobs:
             - name: Setup Node.js
               uses: actions/setup-node@v4
               with:
-                  node-version: 24 # You can change this to 18 if needed
+                  node-version: 20 # Node 24 is currently in nightly/unstable; 20 is the current LTS
+                  cache: "yarn"
 
             - name: Install Dependencies
-              run: npm install # Uses package-lock.json for clean, reliable installs
+              run: yarn install --immutable # Uses yarn.lock for clean, reliable installs
 
             - name: Build Project
-              run: npm run build # Compiles your .ts to .js and bundles everything
+              run: yarn build # Compiles your .ts to .js and bundles everything
 
             - name: Setup Pages
               uses: actions/configure-pages@v4
 
             - name: Upload Artifact
-              uses: actions/upload-pages-artifact@v3
+              uses: actions/upload-pages-artifact@v4
               with:
                   path: "./dist" # IMPORTANT: Change to './build' if your framework outputs there instead of 'dist'
 
