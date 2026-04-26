@@ -53,6 +53,7 @@ class SwarmApp {
 	mouse = [0, 0];
 	frames = 0;
 	lastTime = 0;
+	private lastFrameTimestamp = 0;
 
 	constructor() {
 		this.canvas = <HTMLCanvasElement>document.getElementById("glcanvas");
@@ -313,10 +314,24 @@ void main() {
 		this.updateUI(t);
 	}
 
+	// updateUI(t: number) {
+	// 	this.frames++;
+	// 	if (t > this.lastTime + 1000) {
+	// 		this.ui.innerText = `FPS: ${this.frames} | PARTICLES: ${NUM_PARTICLES} | CPU: ~0%`;
+	// 		this.frames = 0;
+	// 		this.lastTime = t;
+	// 	}
+	// }
 	updateUI(t: number) {
+		const frameTime = t - this.lastFrameTimestamp; // Current frame latency
+		this.lastFrameTimestamp = t;
+
 		this.frames++;
 		if (t > this.lastTime + 1000) {
-			this.ui.innerText = `FPS: ${this.frames} | PARTICLES: ${NUM_PARTICLES} | CPU: ~0%`;
+			// We show the latency of the very last frame for accuracy
+			const latency = frameTime.toFixed(2);
+			this.ui.innerText = `FPS: ${this.frames} | LATENCY: ${latency}ms | PARTICLES: ${NUM_PARTICLES.toLocaleString()}`;
+
 			this.frames = 0;
 			this.lastTime = t;
 		}
