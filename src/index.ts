@@ -54,6 +54,7 @@ class SwarmApp {
 	private lastFrameTimestamp = 0;
 	private NUM_PARTICLES: number = 100000;
 	private rafSubscription: any;
+	private subscription: any; // track loop
 
 	constructor() {
 		this.canvas = <HTMLCanvasElement>document.getElementById("glcanvas");
@@ -97,13 +98,16 @@ class SwarmApp {
 	reset(newCount: number) {
 		this.NUM_PARTICLES = newCount;
 
-		// 1. sweep old GPU buffers
+		// Reset trackers for new math
+		this.lastTime = 0;
+		this.lastFrameTimestamp = 0;
+		this.frames = 0;
+
 		if (this.bufA) this.gl.deleteBuffer(this.bufA);
 		if (this.bufB) this.gl.deleteBuffer(this.bufB);
 		if (this.vaoA) this.gl.deleteVertexArray(this.vaoA);
 		if (this.vaoB) this.gl.deleteVertexArray(this.vaoB);
 
-		// 2. Re-run init
 		this.init();
 	}
 
@@ -318,7 +322,12 @@ void main() {
 	}
 
 	start() {
-		fromRAF({ timestamp: true }).subscribe({
+		// If a loop is already running, unsubscribe first
+		if (this.subscription) {
+			this.subscription.unsubscribe();
+		}
+
+		this.subscription = fromRAF({ timestamp: true }).subscribe({
 			next: t => this.update(t),
 		});
 	}
