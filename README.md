@@ -4,7 +4,7 @@ A high-performance GPGPU particle simulation using `@thi.ng/shader-ast` and WebG
 
 ## Features
 
-- **100,000 Particles** simulated entirely on the GPU.
+- **100,000 | 500,000 | 1,000,000 Particles** simulated entirely on the GPU.
 - **60 FPS Performance** with minimal CPU overhead.
 - **Dynamic Physics**:
   - Simplex Noise (3D) turbulence.
