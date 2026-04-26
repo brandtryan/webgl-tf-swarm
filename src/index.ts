@@ -37,8 +37,6 @@ import { GLSLVersion, targetGLSL } from "@thi.ng/shader-ast-glsl";
 import { snoise3 } from "@thi.ng/shader-ast-stdlib";
 import { fromRAF } from "@thi.ng/rstream";
 
-const NUM_PARTICLES = 100000;
-
 class SwarmApp {
 	canvas: HTMLCanvasElement;
 	gl: WebGL2RenderingContext;
@@ -54,11 +52,14 @@ class SwarmApp {
 	frames = 0;
 	lastTime = 0;
 	private lastFrameTimestamp = 0;
+	private NUM_PARTICLES: number = 100000;
+	private rafSubscription: any;
 
 	constructor() {
 		this.canvas = <HTMLCanvasElement>document.getElementById("glcanvas");
 		this.gl = this.canvas.getContext("webgl2", { alpha: false, antialias: false })!;
 		this.ui = document.getElementById("ui")!;
+		(globalThis as any).app = this;
 
 		if (!snoise3) {
 			console.error("snoise3 is undefined!");
@@ -72,26 +73,41 @@ class SwarmApp {
 		this.resize();
 
 		// Show a loading state in the UI if needed
-		this.ui.innerText = "Initializing Swarm...";
+		this.ui.innerText = `Generating ${this.NUM_PARTICLES.toLocaleString()} particles...`;
 
-		// Offload the heavy 400k-element array generation to a background thread
-		const data = await this.generateInitialDataWorker();
+		// Heavy array generation to a background thread
+		const data = await this.generateInitialDataWorker(this.NUM_PARTICLES);
 
-		const { vs, fs } = this.createShaders();
-		this.program = this.createProgram(vs, fs);
-		this.locs = {
-			time: this.gl.getUniformLocation(this.program, "u_time"),
-			mouse: this.gl.getUniformLocation(this.program, "u_mouse"),
-		};
+		if (!this.program) {
+			const { vs, fs } = this.createShaders();
+			this.program = this.createProgram(vs, fs);
+			this.locs = {
+				time: this.gl.getUniformLocation(this.program, "u_time"),
+				mouse: this.gl.getUniformLocation(this.program, "u_mouse"),
+			};
+		}
 
 		this.setupBuffers(data);
 		this.gl.enable(this.gl.BLEND);
 		this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE);
-
-		this.start();
+		if (!this.rafSubscription) this.start();
 	}
 
-	generateInitialDataWorker(): Promise<Float32Array> {
+	// Reset!
+	reset(newCount: number) {
+		this.NUM_PARTICLES = newCount;
+
+		// 1. sweep old GPU buffers
+		if (this.bufA) this.gl.deleteBuffer(this.bufA);
+		if (this.bufB) this.gl.deleteBuffer(this.bufB);
+		if (this.vaoA) this.gl.deleteVertexArray(this.vaoA);
+		if (this.vaoB) this.gl.deleteVertexArray(this.vaoB);
+
+		// 2. Re-run init
+		this.init();
+	}
+
+	generateInitialDataWorker(NUM_PARTICLES: number): Promise<Float32Array> {
 		return new Promise(resolve => {
 			const workerCode = `
             onmessage = function(e) {
@@ -113,7 +129,7 @@ class SwarmApp {
 				resolve(e.data);
 				worker.terminate();
 			};
-			worker.postMessage(NUM_PARTICLES);
+			worker.postMessage(this.NUM_PARTICLES);
 		});
 	}
 
@@ -131,7 +147,7 @@ class SwarmApp {
 	}
 
 	generateInitialData() {
-		const data = new Float32Array(NUM_PARTICLES * 4);
+		const data = new Float32Array(this.NUM_PARTICLES * 4);
 		for (let i = 0; i < data.length; i += 4) {
 			data[i] = Math.random() * 2 - 1;
 			data[i + 1] = Math.random() * 2 - 1;
@@ -321,7 +337,7 @@ void main() {
 
 		gl.enable(gl.RASTERIZER_DISCARD);
 		gl.beginTransformFeedback(gl.POINTS);
-		gl.drawArrays(gl.POINTS, 0, NUM_PARTICLES);
+		gl.drawArrays(gl.POINTS, 0, this.NUM_PARTICLES);
 		gl.endTransformFeedback();
 		gl.disable(gl.RASTERIZER_DISCARD);
 
@@ -333,21 +349,13 @@ void main() {
 		gl.clear(gl.COLOR_BUFFER_BIT);
 
 		gl.bindVertexArray(writeIdx === 0 ? this.vaoA : this.vaoB);
-		gl.drawArrays(gl.POINTS, 0, NUM_PARTICLES);
+		gl.drawArrays(gl.POINTS, 0, this.NUM_PARTICLES);
 
 		this.readIdx = writeIdx;
 
 		this.updateUI(t);
 	}
 
-	// updateUI(t: number) {
-	// 	this.frames++;
-	// 	if (t > this.lastTime + 1000) {
-	// 		this.ui.innerText = `FPS: ${this.frames} | PARTICLES: ${NUM_PARTICLES} | CPU: ~0%`;
-	// 		this.frames = 0;
-	// 		this.lastTime = t;
-	// 	}
-	// }
 	updateUI(t: number) {
 		const frameTime = t - this.lastFrameTimestamp; // Current frame latency
 		this.lastFrameTimestamp = t;
@@ -356,7 +364,7 @@ void main() {
 		if (t > this.lastTime + 1000) {
 			// We show the latency of the very last frame for accuracy
 			const latency = frameTime.toFixed(2);
-			this.ui.innerText = `FPS: ${this.frames} | LATENCY: ${latency}ms | PARTICLES: ${NUM_PARTICLES.toLocaleString()}`;
+			this.ui.innerText = `FPS: ${this.frames} | LATENCY: ${latency}ms | PARTICLES: ${this.NUM_PARTICLES.toLocaleString()}`;
 
 			this.frames = 0;
 			this.lastTime = t;
