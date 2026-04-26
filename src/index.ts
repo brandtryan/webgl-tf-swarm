@@ -71,14 +71,14 @@ class SwarmApp {
 	}
 
 	reset(newCount: number) {
-		this.isReady = false; // Immediately stop the draw loop
+		this.isReady = false; // stop the draw loop
 		this.NUM_PARTICLES = newCount;
 
-		// Reset metrics for a clean report
+		// Reset report
 		this.lastTime = performance.now();
 		this.frames = 0;
 
-		// Cleanup GPU Memory (Crucial for 1M particle scaling)
+		// Cleanup GPU Memory (1M particles!!)
 		const gl = this.gl;
 		if (this.bufA) gl.deleteBuffer(this.bufA);
 		if (this.bufB) gl.deleteBuffer(this.bufB);
@@ -92,7 +92,6 @@ class SwarmApp {
 		this.setupEvents();
 		this.resize();
 
-		// Show a loading state in the UI if needed
 		this.ui.innerText = `Generating ${this.NUM_PARTICLES.toLocaleString()} PARTICLES...`;
 
 		// Heavy array generation to a background thread
@@ -214,7 +213,7 @@ class SwarmApp {
 					assign(dist, length(dir)),
 					assign(force, mul(normalize(dir), div(float(0.02), max(dist, float(0.1))))),
 
-					// 2. Center Repulsion (Prevents collapsing into a line/point)
+					// 2. Center Repulsion (helps prevent collapsing into a line/point)
 					assign(dir, pos), // vector from center
 					assign(dist, length(dir)),
 					assign(force, add(force, mul(normalize(dir), div(float(0.005), max(dist, float(0.05)))))),
@@ -234,8 +233,6 @@ class SwarmApp {
 					// Output State
 					assign(v_state, vec4(pos, vel)),
 
-					// Color mapping from sampleColors.jpg
-					// Palette: Deep Teal (0, 0.2, 0.3), Neon Pink (1, 0.1, 0.6), Golden Yellow (1, 0.9, 0)
 					assign(
 						v_color,
 						mix(
@@ -328,7 +325,7 @@ void main() {
 	}
 
 	start() {
-		// If a loop is already running, unsubscribe first
+		// If a loop is going unsubscribe first
 		if (this.subscription) {
 			this.subscription.unsubscribe();
 		}
@@ -339,7 +336,7 @@ void main() {
 	}
 
 	update(t: number) {
-		if (!this.isReady) return; // Exit if buffers are being swapped
+		if (!this.isReady) return; // get out if buffers are being swapped
 
 		const gl = this.gl;
 		const writeIdx = 1 - this.readIdx;
@@ -365,7 +362,7 @@ void main() {
 		gl.drawArrays(gl.POINTS, 0, this.NUM_PARTICLES);
 
 		this.readIdx = writeIdx;
-		this.updateUI(); // We no longer pass 't' to avoid unit bugs
+		this.updateUI();
 	}
 	updateUI() {
 		const now = performance.now();
@@ -373,8 +370,6 @@ void main() {
 		this.lastFrameTimestamp = now;
 		this.frames++;
 
-		// Calculate VRAM in Megabytes
-		// (numParticles * 16 bytes per vec4 * 2 buffers) / 1024 / 1024
 		if (now - this.lastTime >= 1000) {
 			const latency = frameTime.toFixed(2);
 			// Calculate VRAM for the particle buffers (4 floats * 4 bytes * 2 buffers)
