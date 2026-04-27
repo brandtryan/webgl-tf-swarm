@@ -1,16 +1,15 @@
 {
-	"name": "webgl-tf-swarm",
-	"version": "1.0.0",
-	"description": "",
+	"name": "thi.ng-transform-feedback-swarm",
+	"version": "0.0.1",
+	"description": "1 Million Thi.ngs with Transform Feedback",
 	"main": "/src/index.ts",
 	"scripts": {
-		"test": "echo \"Error: no test specified\" && exit 1",
 		"start": "vite --open --host",
 		"build": "tsc && vite build --base='./'",
 		"preview": "vite preview --host --open"
 	},
-	"keywords": [],
 	"author": "Brandt Ryan",
+	"license": "Apache-2.0",
 	"type": "module",
 	"devDependencies": {
 		"typescript": "~5.9.3",
@@ -20,7 +19,20 @@
 		"@thi.ng/rstream": "^9.4.1",
 		"@thi.ng/shader-ast": "^1.1.44",
 		"@thi.ng/shader-ast-glsl": "^1.0.63",
-		"@thi.ng/shader-ast-stdlib": "^1.0.63"
+		"@thi.ng/shader-ast-stdlib": "^1.0.63",
+		"@thi.ng/webgl": "^6.9.103"
 	},
-	"packageManager": "yarn@4.13.0"
+	"keywords": [
+		"2d",
+		"browser",
+		"evolutionary",
+		"generative",
+		"interactive",
+		"legos",
+		"particles",
+		"transform feedback",
+		"shader-ast",
+		"visualization",
+		"webgl2"
+	]
 }

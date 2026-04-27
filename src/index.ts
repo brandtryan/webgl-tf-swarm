@@ -33,8 +33,6 @@ import { GLSLVersion, targetGLSL } from "@thi.ng/shader-ast-glsl";
 import { snoise3 } from "@thi.ng/shader-ast-stdlib";
 import { fromRAF } from "@thi.ng/rstream";
 
-const NUM_PARTICLES = 100000;
-
 class SwarmApp {
 	canvas: HTMLCanvasElement;
 	gl: WebGL2RenderingContext;
@@ -47,13 +45,19 @@ class SwarmApp {
 	locs!: { time: WebGLUniformLocation | null; mouse: WebGLUniformLocation | null };
 	readIdx = 0;
 	mouse = [0, 0];
+	isReady = false;
+	subscription?: any; // track loop
+	lastFrameTimestamp = performance.now();
+	lastTime = performance.now();
 	frames = 0;
-	lastTime = 0;
+	NUM_PARTICLES: number = 100000;
+	rafSubscription: any;
 
 	constructor() {
 		this.canvas = <HTMLCanvasElement>document.getElementById("glcanvas");
 		this.gl = this.canvas.getContext("webgl2", { alpha: false, antialias: false })!;
 		this.ui = document.getElementById("ui")!;
+		(globalThis as any).app = this;
 
 		if (!snoise3) {
 			console.error("snoise3 is undefined!");
@@ -62,28 +66,76 @@ class SwarmApp {
 		this.init();
 	}
 
-	init() {
+	reset(newCount: number) {
+		this.isReady = false; // stop the draw loop
+		this.NUM_PARTICLES = newCount;
+
+		// Reset report
+		this.lastTime = performance.now();
+		this.frames = 0;
+
+		// Cleanup GPU Memory (1M particles!!)
+		const gl = this.gl;
+		if (this.bufA) gl.deleteBuffer(this.bufA);
+		if (this.bufB) gl.deleteBuffer(this.bufB);
+		if (this.vaoA) gl.deleteVertexArray(this.vaoA);
+		if (this.vaoB) gl.deleteVertexArray(this.vaoB);
+
+		this.init();
+	}
+
+	async init() {
 		this.setupEvents();
 		this.resize();
 
-		const data = this.generateInitialData();
-		const { vs, fs } = this.createShaders();
+		this.ui.innerText = `Generating ${this.NUM_PARTICLES.toLocaleString()} PARTICLES...`;
 
-		console.log("VS:\n", vs);
-		console.log("FS:\n", fs);
+		// Heavy array generation to a background thread
+		const data = await this.generateInitialDataWorker(this.NUM_PARTICLES);
 
-		this.program = this.createProgram(vs, fs);
-		this.locs = {
-			time: this.gl.getUniformLocation(this.program, "u_time"),
-			mouse: this.gl.getUniformLocation(this.program, "u_mouse"),
-		};
+		if (!this.program) {
+			const { vs, fs } = this.createShaders();
+			this.program = this.createProgram(vs, fs);
+			this.locs = {
+				time: this.gl.getUniformLocation(this.program, "u_time"),
+				mouse: this.gl.getUniformLocation(this.program, "u_mouse"),
+			};
+		}
 
 		this.setupBuffers(data);
 
 		this.gl.enable(this.gl.BLEND);
 		this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE);
 
-		this.start();
+		if (!this.subscription) this.start();
+
+		this.isReady = true; // safe to run again
+	}
+
+	generateInitialDataWorker(NUM_PARTICLES: number): Promise<Float32Array> {
+		return new Promise(resolve => {
+			const workerCode = `
+            onmessage = function(e) {
+                const num = e.data;
+                const data = new Float32Array(num * 4);
+                for (let i = 0; i < data.length; i += 4) {
+                    data[i] = Math.random() * 2 - 1;
+                    data[i + 1] = Math.random() * 2 - 1;
+                    data[i + 2] = (Math.random() - 0.5) * 0.1;
+                    data[i + 3] = (Math.random() - 0.5) * 0.1;
+                }
+                postMessage(data, [data.buffer]); // Transfer buffer for 0ms copy time
+            };
+        `;
+			const blob = new Blob([workerCode], { type: "application/javascript" });
+			const worker = new Worker(URL.createObjectURL(blob));
+
+			worker.onmessage = e => {
+				resolve(e.data);
+				worker.terminate();
+			};
+			worker.postMessage(this.NUM_PARTICLES);
+		});
 	}
 
 	setupEvents() {
@@ -100,7 +152,7 @@ class SwarmApp {
 	}
 
 	generateInitialData() {
-		const data = new Float32Array(NUM_PARTICLES * 4);
+		const data = new Float32Array(this.NUM_PARTICLES * 4);
 		for (let i = 0; i < data.length; i += 4) {
 			data[i] = Math.random() * 2 - 1;
 			data[i + 1] = Math.random() * 2 - 1;
@@ -157,7 +209,8 @@ class SwarmApp {
 					assign(dist, length(dir)),
 					assign(force, mul(normalize(dir), div(float(0.02), max(dist, float(0.1))))),
 
-					assign(dir, pos),
+					// 2. Center Repulsion (helps prevent collapsing into a line/point)
+					assign(dir, pos), // vector from center
 					assign(dist, length(dir)),
 					assign(force, add(force, mul(normalize(dir), div(float(0.005), max(dist, float(0.05)))))),
 
@@ -190,7 +243,7 @@ class SwarmApp {
 					),
 
 					assign(gl_Position, vec4(pos, 0, 1)),
-					assign(gl_PointSize, float(1.5)),
+					assign(gl_PointSize, float(2.5)),
 				];
 			}),
 		]);
@@ -268,12 +321,19 @@ void main() {
 	}
 
 	start() {
-		fromRAF({ timestamp: true }).subscribe({
+		// If a loop is going unsubscribe first
+		if (this.subscription) {
+			this.subscription.unsubscribe();
+		}
+
+		this.subscription = fromRAF({ timestamp: true }).subscribe({
 			next: t => this.update(t),
 		});
 	}
 
 	update(t: number) {
+		if (!this.isReady) return; // get out if buffers are being swapped
+
 		const gl = this.gl;
 		const writeIdx = 1 - this.readIdx;
 
@@ -281,37 +341,40 @@ void main() {
 		gl.uniform1f(this.locs.time, t * 0.001);
 		gl.uniform2f(this.locs.mouse, this.mouse[0], this.mouse[1]);
 
-		// Transform Feedback
 		gl.bindVertexArray(this.readIdx === 0 ? this.vaoA : this.vaoB);
 		gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, writeIdx === 0 ? this.bufA : this.bufB);
 
 		gl.enable(gl.RASTERIZER_DISCARD);
 		gl.beginTransformFeedback(gl.POINTS);
-		gl.drawArrays(gl.POINTS, 0, NUM_PARTICLES);
+		gl.drawArrays(gl.POINTS, 0, this.NUM_PARTICLES); // Use dynamic count
 		gl.endTransformFeedback();
 		gl.disable(gl.RASTERIZER_DISCARD);
 
-		// Render to screen
-		gl.bindVertexArray(null);
 		gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, null);
-
 		gl.clearColor(0, 0, 0, 1);
 		gl.clear(gl.COLOR_BUFFER_BIT);
 
 		gl.bindVertexArray(writeIdx === 0 ? this.vaoA : this.vaoB);
-		gl.drawArrays(gl.POINTS, 0, NUM_PARTICLES);
+		gl.drawArrays(gl.POINTS, 0, this.NUM_PARTICLES);
 
 		this.readIdx = writeIdx;
-
-		this.updateUI(t);
+		this.updateUI();
 	}
-
-	updateUI(t: number) {
+	updateUI() {
+		const now = performance.now();
+		const frameTime = now - this.lastFrameTimestamp; // Accurate millisecond delta
+		this.lastFrameTimestamp = now;
 		this.frames++;
-		if (t > this.lastTime + 1000) {
-			this.ui.innerText = `FPS: ${this.frames} | PARTICLES: ${NUM_PARTICLES} | CPU: ~0%`;
+
+		if (now - this.lastTime >= 1000) {
+			const latency = frameTime.toFixed(2);
+			// Calculate VRAM for the particle buffers (4 floats * 4 bytes * 2 buffers)
+			const vram = ((this.NUM_PARTICLES * 16 * 2) / 1048576).toFixed(2);
+
+			this.ui.innerText = `LATENCY: ${latency}ms | FPS: ${this.frames} | PARTICLES: ${this.NUM_PARTICLES.toLocaleString()} | VRAM: ${vram}MB`;
+
 			this.frames = 0;
-			this.lastTime = t;
+			this.lastTime = now;
 		}
 	}
 }

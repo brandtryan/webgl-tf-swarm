@@ -6,8 +6,7 @@
 			href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">⛱️</text></svg>' />
 		<meta http-equiv="Content-Type" content="text/html;charset=UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<meta http-equiv="X-UA-Compatible" content="ie=edge" />
-		<title>WebGL2 Transform Feedback Swarm · @thi.ng/umbrella</title>
+		<title>1 Million Thi.ngs with Transform Feedback</title>
 		<style>
 			body {
 				margin: 0;
@@ -29,10 +28,39 @@
 				background: rgba(0, 0, 0, 0.8);
 				border: 1px solid #333;
 			}
+			#controls {
+				position: fixed;
+				top: 20px;
+				right: 20px;
+				display: flex;
+				flex-direction: column;
+				gap: 10px;
+				z-index: 100;
+			}
+			#controls button {
+				background: rgba(0, 0, 0, 0.6);
+				color: #00f2ff; /* Match your teal/neon theme */
+				border: 1px solid #00f2ff;
+				padding: 8px 15px;
+				cursor: pointer;
+				font-family: monospace;
+				transition: all 0.2s;
+			}
+			#controls button:hover {
+				background: #00f2ff;
+				color: black;
+			}
 		</style>
 	</head>
 	<body>
-		<div id="ui">GPGPU compute...</div>
+		<div id="ui" style="position: fixed; top: 10px; left: 10px; color: #00f2ff; font-family: monospace">
+			GPGPUting...
+		</div>
+		<div id="controls">
+			<button onclick="app.reset(100000)">100K</button>
+			<button onclick="app.reset(500000)">500K</button>
+			<button onclick="app.reset(1000000)">1M</button>
+		</div>
 		<canvas id="glcanvas"></canvas>
 		<script type="module" src="/src/index.ts" content-type="application/javascript"></script>
 	</body>
