@@ -9,7 +9,7 @@
 		"preview": "vite preview --host --open"
 	},
 	"author": "Brandt Ryan",
-	"license": "Apache-2.0",
+	"license": "SEE LICENSE IN LICENSE.txt",
 	"type": "module",
 	"devDependencies": {
 		"typescript": "~5.9.3",

@@ -615,7 +615,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@thi.ng/random@npm:^4.1.42, @thi.ng/random@npm:^4.1.44":
+"@thi.ng/random@npm:^4.1.44":
   version: 4.1.44
   resolution: "@thi.ng/random@npm:4.1.44"
   dependencies:
@@ -1145,6 +1145,20 @@ __metadata:
   languageName: node
   linkType: hard
 
+"thi.ng-transform-feedback-swarm@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "thi.ng-transform-feedback-swarm@workspace:."
+  dependencies:
+    "@thi.ng/rstream": "npm:^9.4.1"
+    "@thi.ng/shader-ast": "npm:^1.1.44"
+    "@thi.ng/shader-ast-glsl": "npm:^1.0.63"
+    "@thi.ng/shader-ast-stdlib": "npm:^1.0.63"
+    "@thi.ng/webgl": "npm:^6.9.103"
+    typescript: "npm:~5.9.3"
+    vite: "npm:^7.3.1"
+  languageName: unknown
+  linkType: soft
+
 "tinyglobby@npm:^0.2.12, tinyglobby@npm:^0.2.15":
   version: 0.2.16
   resolution: "tinyglobby@npm:0.2.16"
@@ -1236,21 +1250,6 @@ __metadata:
   checksum: 10c0/74be36907e208916f18bfec81c8eba18b869f0a170f1ece0a4dcb14874d0f0e7c022fb6c2ad896e3ee6c973fe88f53ac23b4078879ada340d8b263260868b8d4
   languageName: node
   linkType: hard
-
-"webgl-tf-swarm@workspace:.":
-  version: 0.0.0-use.local
-  resolution: "webgl-tf-swarm@workspace:."
-  dependencies:
-    "@thi.ng/random": "npm:^4.1.42"
-    "@thi.ng/rstream": "npm:^9.4.1"
-    "@thi.ng/shader-ast": "npm:^1.1.44"
-    "@thi.ng/shader-ast-glsl": "npm:^1.0.63"
-    "@thi.ng/shader-ast-stdlib": "npm:^1.0.63"
-    "@thi.ng/webgl": "npm:^6.9.103"
-    typescript: "npm:~5.9.3"
-    vite: "npm:^7.3.1"
-  languageName: unknown
-  linkType: soft
 
 "which@npm:^6.0.0":
   version: 6.0.1
